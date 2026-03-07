@@ -1,0 +1,32 @@
+# .gcloudignore - files to exclude from Cloud Build
+.gcloudignore
+.git
+.gitignore
+README.md
+CLOUD_RUN_DEPLOYMENT.md
+LICENSE
+*.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Cache (will be created on server)
+cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local development
+start.sh

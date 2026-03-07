@@ -5,8 +5,10 @@ StockInsight Pro is an AI-powered stock market dashboard featuring:
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3 with Chart.js visualizations
 - **Backend**: Python Flask MCP (Model Context Protocol) agent server
 - **Data Source**: Yahoo Finance via yfinance library
-- **Deployment**: Firebase Hosting (frontend), Local/Railway/Render (backend)
+- **Deployment**: Firebase Hosting (frontend), Google Cloud Run (backend - serverless containers)
 - **Design**: Dark theme with glassmorphism, professional financial UI
+- **Production URL**: https://stock-insight-dashboard.web.app
+- **Backend API**: https://stockinsight-pro-306494317452.us-central1.run.app
 
 ## Architecture
 
@@ -23,6 +25,14 @@ StockInsight Pro is an AI-powered stock market dashboard featuring:
   - `analyze_fundamentals` - PE, market cap, debt/equity, FCF analysis
   - `generate_ai_ratings` - AI score (0-100) and Buy/Strong Buy ratings
   - `get_market_context` - Macro context (Fed policy, geopolitics, sector trends)
+
+### Deployment Files
+- `Dockerfile` - Container image definition for Cloud Run
+- `.dockerignore` - Docker build exclusions
+- `.gcloudignore` - Cloud Build upload exclusions
+- `deploy-cloudrun.sh` - Automated deployment script
+- `CLOUD_RUN_DEPLOYMENT.md` - Complete deployment guide
+- `firebase.json` - Firebase hosting configuration
 
 ### Key Endpoints
 - `GET /api/dashboard` - Full dashboard data (all sectors + hero)
@@ -45,7 +55,9 @@ StockInsight Pro is an AI-powered stock market dashboard featuring:
 - **Docstrings**: Google-style for functions
 - **Error handling**: Comprehensive try/except with logging
 - **MCP pattern**: All agent tools return `{"success": bool, "data": any, "error": str}`
-- **Caching**: File-based JSON cache with 4-hour TTL
+- **Caching**: File-based JSON cache with 4-hour TTL in `cache/` directory
+- **Environment**: Read PORT from `os.getenv("PORT", 5050)` for Cloud Run compatibility
+- **Production Mode**: Set `debug=False` when PORT env var exists (Cloud Run sets automatically)
 
 ### CSS
 - **CSS Variables**: All colors/spacing in `:root` for dark/light themes
@@ -141,30 +153,154 @@ ticks: { color: "var(--text-tertiary)" }         // ❌ Renders black
 ## Testing Checklist
 - [ ] Hard refresh browser (Cmd+Shift+R) after JS/CSS changes
 - [ ] Test with backend running (`python3 stock_agent_server.py`)
-- [ ] Test with backend OFF (should use fallback data)
-- [ ] Click Refresh button (should fetch live data if server is up)
-- [ ] Open stock modal (chart should render with light-colored axes)
-- [ ] Check all 9 sector tabs load
-- [ ] Verify GLD and SLV appear in Commodities sector
+- [ Local Development
 
-## Deployment
+**Backend:**
+```bash
+python3 stock_agent_server.py
+# Server runs on http://localhost:5050
+```
 
-### Firebase (Frontend)
+**Frontend (for testing):**
+```bash
+python3 -m http.server 8080
+# Dashboard at http://localhost:8080
+# Update api.js temporarily to use http://localhost:5050
+```
+
+### Google Cloud Run (Production Backend)
+
+**Current Deployment:**
+- **Project ID**: `stockinsight-pro-60001`
+- **Service**: `stockinsight-pro`
+- **Region**: `us-central1`
+- **URL**: `https://stockinsight-pro-306494317452.us-central1.run.app`
+
+**Configuration:**
+- Memory: 512Mi
+- CPU: 1
+- Timeout: 60s
+- Max instances: 10
+
+### Python (Backend)
+```txt
+flask==3.1.3
+flask-cors==6.0.2
+yfinance==1.2.0
+pandas==3.0.1
+numpy==2.4.2
+requests==2.32.5
+```
+
+### JavaScript (Frontend - CDN)
+- **Chart.js**: 4.4.1 (from cdn.jsdelivr.net)
+- **Chart.js Plugin Datalabels**: 2.2.0
+- **No build step required** - pure vanilla JS
+
+### Fonts
+- **Inter**: Variable font from Google Fonts
+- **JetBrains Mono**: Monospace for numbers/code
+**Deployment Script:**
+```bash
+chmod +x deploy-cloudrun.sh
+./deploy-cloudrun.sh
+```
+
+**Manual Deployment:**
+```bash
+# Build and push to Artifact Registry
+gcloud builds submit --tag us-central1-docker.pkg.dev/stockinsight-pro-60001/stockinsight-repo/stockinsight-pro
+
+# Deploy to Cloud Run
+gcloud run deploy stockinsight-pro \
+  --image us-central1-docker.pkg.dev/stockinsight-pro-60001/stockinsight-repo/stockinsight-pro \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --memory 512Mi \
+  --cpu 1 \
+  --timeout 60s \
+  --max-instances 10 \
+  --port 8080
+```
+
+**View Logs:**
+```bash
+gcloud run services logs read stockinsight-pro --region us-central1 --limit 50
+```
+
+### Firebase Hosting (Production Frontend)
+
 ```bash
 firebase deploy --only hosting
 ```
 
-### Local Backend
-```bash
-./start.sh  # Starts both Flask server (5050) and static server (8000)
+**After backend updates**, ensure `api.js` points to production:
+```javascript
+const API_BASE = "https://stockinsight-pro-306494317452.us-central1.run.app";  // Production
+// const API_BASE = "http://localhost:5050";  // Development
 ```
 
-### Production Backend Options
-- **Railway**: `railway up` (easiest)
-- **Render**: Connect GitHub repo, autodeploy
-- **Google Cloud Run**: `gcloud run deploy`
+### Docker (For Testing)
 
-After deploying backend, update `API_BASE` in `api.js`:
+**Build locally:**
+```bash
+docker build -t stockinsight-pro .
+docker run -p 8080:8080 stockinsight-pro
+```
+
+**Dockerfile Notes:**
+- Base image: `python:3.11-slim`
+- Installs gcc for compilation
+- Reads PORT from environment (8080 for Cloud Run, 5050 for local)
+- CrBackend API**: https://stockinsight-pro-306494317452.us-central1.run.app
+- **API Health**: https://stockinsight-pro-306494317452.us-central1.run.app/api/health
+- **Cloud Run Console**: https://console.cloud.google.com/run/detail/us-central1/stockinsight-pro/metrics?project=stockinsight-pro-60001
+- *Cost & Performance
+
+### Cloud Run Free Tier
+- **2 million requests/month** (far exceeds usage)
+- **360,000 vCPU-seconds/month**
+- **180,000 GiB-seconds memory/month**
+
+### Current Usage
+- ~180 requests/month (with 4-hour caching)
+- **Estimated cost: $0/month** (within free tier)
+
+### Performance Optimizations
+1. **Server-side caching**: 4-hour TTL prevents excessive Yahoo Finance API calls
+2. **Scale to zero**: Cloud Run spins down when idle (no base cost)
+3. **Client-side cache**: localStorage reduces server requests
+4. **CDN delivery**: Firebase Hosting serves static assets globally
+5. **Lazy loading**: Charts render only when sector tab is active
+
+## Troubleshooting
+
+### Backend Issues
+- **Cold starts**: First request after idle takes 5-10 seconds (normal for Cloud Run)
+- **Yahoo Finance errors**: Always have fallback data, never let API failures crash
+- **Timeout errors**: Increase Cloud Run timeout if needed: `--timeout 90s`
+
+### Frontend Issues
+- **Black text on charts**: Use `themeColor()` helper, NOT raw CSS variables
+- **CORS errors**: Verify Flask-CORS installed and API_BASE URL correct
+- **Cache issues**: Clear localStorage: `localStorage.removeItem("stockinsight_dashboard_cache")`
+
+### Deployment Issues
+- **Build fails**: Check Dockerfile syntax, ensure requirements.txt is complete
+- **Permission errors**: Run `gcloud auth login` and verify project billing is enabled
+- **Service unreachable**: Check Cloud Run service is deployed and allows unauthenticated access
+
+## Notes for Copilot
+- Prefer vanilla JS over frameworks — this is a zero-dependency frontend
+- Always maintain fallback gracefully — app must work offline
+- Performance matters: minimize reflows, use CSS animations over JS
+- Dark theme is primary — light theme is secondary
+- Financial data accuracy is critical — test calculations carefully
+- Use semantic HTML (section, article, nav) for accessibility
+- **Cloud Run specific**: Always read PORT from environment, set debug=False in production
+- **Docker best practices**: Keep image small, use .dockerignore to exclude unnecessary files
+- **Caching strategy**: Respect 4-hour TTL, never let cache grow unbounded
 ```javascript
 const API_BASE = "https://your-backend-url.com";  // Production
 // const API_BASE = "http://localhost:5050";      // Development

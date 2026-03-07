@@ -45,11 +45,21 @@ pip install -r requirements.txt
 
 ### 3. Start the AI Agent MCP Server
 
+**Local Development:**
 ```bash
 python3 stock_agent_server.py
 ```
 
-The server will start on **http://localhost:5000** and immediately begin fetching live data from Yahoo Finance. The first run takes ~30–60 seconds while it fetches prices and fundamentals for all 33 tickers.
+The server will start on **http://localhost:5050** and immediately begin fetching live data from Yahoo Finance. The first run takes ~30–60 seconds while it fetches prices and fundamentals for all 33 tickers.
+
+**Production Deployment (Google Cloud Run):**
+
+For production deployment with zero cost (within free tier), see [CLOUD_RUN_DEPLOYMENT.md](CLOUD_RUN_DEPLOYMENT.md)
+
+Quick deploy:
+```bash
+./deploy-cloudrun.sh
+```
 
 ### 4. Open the Dashboard
 

@@ -629,9 +629,12 @@ def api_health():
 
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    # Get port from environment variable (Cloud Run sets this) or default to 5050
+    port = int(os.getenv("PORT", 5050))
+    
     print("╔══════════════════════════════════════════════════╗")
     print("║  StockInsight Pro — AI Agent MCP Server v1.0    ║")
-    print("║  http://localhost:5050                          ║")
+    print(f"║  http://localhost:{port}                          ║")
     print("║                                                  ║")
     print("║  Endpoints:                                      ║")
     print("║    GET  /api/dashboard   → Full dashboard data   ║")
@@ -639,4 +642,7 @@ if __name__ == "__main__":
     print("║    POST /api/refresh     → Force refresh         ║")
     print("║    GET  /api/health      → Server status         ║")
     print("╚══════════════════════════════════════════════════╝\n")
-    app.run(host="0.0.0.0", port=5050, debug=True)
+    
+    # Use debug=False in production (when PORT is set by Cloud Run)
+    is_production = os.getenv("PORT") is not None
+    app.run(host="0.0.0.0", port=port, debug=not is_production)

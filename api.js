@@ -1,15 +1,15 @@
 /**
  * StockInsight Pro — API Client
  * ==============================
- * Connects to the Python MCP Agent Server (localhost:5000)
+ * Connects to the Python MCP Agent Server (Google Cloud Run)
  * Falls back to localStorage cache if server is unavailable.
  *
  * Architecture:
- *   Browser → api.js → MCP Agent Server (Python) → Yahoo Finance
+ *   Browser → api.js → MCP Agent Server (Python/Cloud Run) → Yahoo Finance
  *                   ↘ localStorage fallback cache
  */
 
-const API_BASE = "http://localhost:5050";
+const API_BASE = "https://stockinsight-pro-306494317452.us-central1.run.app";
 const CACHE_KEY = "stockinsight_dashboard_cache";
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
