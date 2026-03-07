@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockInsight Pro — AI-Powered Market Intelligence</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ LOADING SCREEN ============ -->
+  <div id="loader" class="loader-overlay">
+    <div class="loader-content">
+      <div class="pulse-ring"></div>
+      <div class="loader-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <h2 class="loader-title">StockInsight Pro</h2>
+      <p class="loader-sub">Analyzing market intelligence…</p>
+      <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- ============ APP SHELL ============ -->
+  <div id="app" class="app hidden">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="url(#logoGrad)" stroke-width="2">
+              <defs><linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs>
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <span class="logo-text">StockInsight <span class="accent">Pro</span></span>
+        </div>
+        <div class="market-badge live">
+          <span class="live-dot"></span> <span id="marketDate">Market Data</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="searchInput" placeholder="Search stocks, ETFs…" autocomplete="off" />
+        </div>
+        <button class="btn-icon" id="themeToggle" title="Toggle theme">
+          <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- MARKET TICKER -->
+    <div class="ticker-strip">
+      <div class="ticker-track" id="tickerTrack"></div>
+    </div>
+
+    <!-- API CONFIG BAR -->
+    <div class="api-bar" id="apiBar">
+      <div class="api-bar-inner">
+        <div class="api-status" id="apiStatus">
+          <span class="status-dot cached"></span>
+          <span id="apiStatusText">Loading…</span>
+        </div>
+        <div class="api-config">
+          <button class="api-config-btn" id="apiConfigBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            API Key
+          </button>
+          <button class="api-config-btn refresh" id="refreshBtn" title="Refresh data now">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- API KEY MODAL -->
+    <div class="apikey-modal-overlay" id="apikeyOverlay">
+      <div class="apikey-modal">
+        <h3>Configure Free API Key</h3>
+        <p>Get a <strong>free</strong> API key from <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a> (60 calls/min, no credit card).</p>
+        <input type="text" id="apikeyInput" placeholder="Paste your Finnhub API key…" autocomplete="off" />
+        <div class="apikey-actions">
+          <button class="apikey-save" id="apikeySave">Save & Fetch Live Data</button>
+          <button class="apikey-cancel" id="apikeyCancel">Cancel</button>
+        </div>
+        <p class="apikey-note">Without an API key, the dashboard uses Yahoo Finance public endpoints + cached data as fallback.</p>
+      </div>
+    </div>
+
+    <!-- HERO SECTION — values populated dynamically by app.js -->
+    <section class="hero">
+      <div class="hero-grid">
+        <div class="hero-card sp500">
+          <div class="hero-label">S&P 500</div>
+          <div class="hero-value" id="heroSP500Val">—</div>
+          <div class="hero-change" id="heroSP500Chg">Loading…</div>
+        </div>
+        <div class="hero-card nasdaq">
+          <div class="hero-label">NASDAQ 100</div>
+          <div class="hero-value" id="heroNasdaqVal">—</div>
+          <div class="hero-change" id="heroNasdaqChg">Loading…</div>
+        </div>
+        <div class="hero-card oil">
+          <div class="hero-label">Crude Oil (WTI)</div>
+          <div class="hero-value" id="heroOilVal">—</div>
+          <div class="hero-change" id="heroOilChg">Loading…</div>
+        </div>
+        <div class="hero-card gold">
+          <div class="hero-label">Gold</div>
+          <div class="hero-value" id="heroGoldVal">—</div>
+          <div class="hero-change" id="heroGoldChg">Loading…</div>
+        </div>
+        <div class="hero-card vix">
+          <div class="hero-label">VIX</div>
+          <div class="hero-value" id="heroVixVal">—</div>
+          <div class="hero-change" id="heroVixChg">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+      <!-- SECTOR NAVIGATION -->
+      <nav class="sector-nav">
+        <h2 class="section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          Top 5 Highest-Rated Stocks by Sector
+        </h2>
+        <div class="sector-tabs" id="sectorTabs">
+          <button class="sector-tab active" data-sector="technology">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Technology
+          </button>
+          <button class="sector-tab" data-sector="ai">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><path d="M9 14h.01"/><path d="M15 14h.01"/></svg>
+            AI
+          </button>
+          <button class="sector-tab" data-sector="energy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Energy
+          </button>
+          <button class="sector-tab" data-sector="commodities">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M6 12h12"/></svg>
+            Commodities
+          </button>
+          <button class="sector-tab" data-sector="healthcare">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Healthcare
+          </button>
+          <button class="sector-tab" data-sector="financial">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Financial
+          </button>
+          <button class="sector-tab" data-sector="etfs">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            ETFs
+          </button>
+          <button class="sector-tab" data-sector="ai_ecosystem">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            AI Storage
+          </button>
+          <button class="sector-tab" data-sector="ai_power">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            AI Power
+          </button>
+        </div>
+      </nav>
+
+      <!-- STOCK CARDS GRID -->
+      <div class="stocks-grid" id="stocksGrid"></div>
+
+      <!-- SECTOR CHART AREA -->
+      <section class="chart-section">
+        <div class="chart-panel">
+          <div class="chart-header">
+            <h3 id="chartTitle">Sector Comparison — PE Ratios</h3>
+            <div class="chart-controls">
+              <button class="chart-btn active" data-chart="pe">PE Ratio</button>
+              <button class="chart-btn" data-chart="mcap">Market Cap</button>
+              <button class="chart-btn" data-chart="rating">Analyst Score</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="sectorChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-header">
+            <h3>Sector Allocation — Market Weight</h3>
+          </div>
+          <div class="chart-container donut-container">
+            <canvas id="allocationChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI ANALYSIS SECTION -->
+      <section class="analysis-section" id="analysisSection">
+        <div class="analysis-header">
+          <div class="ai-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/></svg>
+            AI Analysis Engine
+          </div>
+          <h2 class="section-title">Why These Stocks Have the Highest Buy Ratings</h2>
+          <p class="section-sub">Deep fundamental analysis powered by market intelligence — Balance Sheet strength, PE valuation, revenue growth & technical signals</p>
+        </div>
+        <div class="analysis-grid" id="analysisGrid"></div>
+      </section>
+
+      <!-- MARKET CONTEXT -->
+      <section class="context-section">
+        <h2 class="section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Market Context — March 2026
+        </h2>
+        <div class="context-grid">
+          <div class="context-card geopolitical">
+            <div class="context-icon">🌍</div>
+            <h4>Geopolitical Risk</h4>
+            <p>US-Iran tensions are elevating oil prices and driving safe-haven flows into gold. Strait of Hormuz chokepoint concerns are keeping energy sector bid.</p>
+          </div>
+          <div class="context-card ai-boom">
+            <div class="context-icon">🧠</div>
+            <h4>AI Infrastructure Boom</h4>
+            <p>NVIDIA's $68.1B quarterly revenue validated the AI buildout thesis. Hyperscalers are in a multi-year capex supercycle deploying AI infrastructure at unprecedented scale.</p>
+          </div>
+          <div class="context-card rotation">
+            <div class="context-icon">🔄</div>
+            <h4>Sector Rotation</h4>
+            <p>Capital is rotating from mega-cap growth into value, energy, healthcare, and materials as investors seek diversification amid elevated market multiples.</p>
+          </div>
+          <div class="context-card rates">
+            <div class="context-icon">📊</div>
+            <h4>Rate Environment</h4>
+            <p>The Fed is maintaining a data-dependent approach. Sticky inflation alongside geopolitical uncertainty is keeping rates higher for longer, favoring quality balance sheets.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- STOCK DETAIL MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal" id="stockModal">
+        <button class="modal-close" id="modalClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="modal-body" id="modalBody"></div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <p><strong>StockInsight Pro</strong> — AI-Powered Market Intelligence Dashboard</p>
+      <p class="disclaimer">Data sourced via Finnhub & Yahoo Finance APIs. Prices update daily. Analyst ratings reflect Wall Street consensus. <strong>This is not investment advice.</strong></p>
+    </footer>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

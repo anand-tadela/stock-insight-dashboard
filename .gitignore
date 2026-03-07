@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+.env
+.venv
+venv/
+env/
+
+# Cache (keep the directory, exclude generated JSON cache files)
+cache/*.json
+*.json.bak
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node (if used)
+node_modules/
+
+# Secrets
+*.pem
+*.key
+secrets.js

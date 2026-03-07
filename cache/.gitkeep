@@ -1,0 +1,2 @@
+# Cache directory — server writes JSON files here (auto-managed, TTL: 4 hours)
+# This directory is excluded from git via .gitignore
