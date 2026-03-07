@@ -155,3 +155,16 @@ Ratings:
 ## Disclaimer
 
 This dashboard is for **educational and informational purposes only**. Data sourced from Yahoo Finance. This is **not investment advice**.
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Author
+
+**Anand Tadela** © 2026
+
+- GitHub: [@anand-tadela](https://github.com/anand-tadela)
+- Live Demo: https://stock-insight-dashboard.web.app
