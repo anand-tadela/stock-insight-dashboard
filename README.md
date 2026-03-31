@@ -1,9 +1,12 @@
 # StockInsight Pro — AI-Powered Market Intelligence Dashboard
 
-A full-stack stock market dashboard featuring an AI agent backend (Python/Flask) that fetches **live data** from Yahoo Finance, scores stocks using a composite fundamental analysis algorithm, and serves it all to a sleek browser-based frontend.
+A full-stack stock market dashboard featuring an AI agent backend (Python/Flask) that fetches **live data** from Yahoo Finance, scores stocks using a composite fundamental analysis algorithm, and serves it all to a sleek browser-based frontend — with phone authentication, personal portfolio tracking, and real-time price alerts via push notifications.
+
+**Live:** https://stock-insight-dashboard.web.app
 
 ## Features
 
+### Core Dashboard
 - **Live stock prices** — fetched via Yahoo Finance (`yfinance`)
 - **AI Composite Scoring** — 100-point algorithm across Valuation, Growth, Balance Sheet & Analyst Consensus
 - **7 Sectors** — Technology, AI, Energy, Commodities, Healthcare, Financial, ETFs
@@ -13,6 +16,21 @@ A full-stack stock market dashboard featuring an AI agent backend (Python/Flask)
 - **Light/Dark Theme** — Persisted to localStorage
 - **Search** — Filter stocks across all sectors in real-time
 - **Graceful Fallback** — Static data when the server is offline
+
+### Authentication
+- **Phone Number Auth** — Sign in with mobile number + SMS OTP (Firebase Phone Auth)
+- **Persistent Sessions** — Stays signed in across browser sessions
+
+### Personal Portfolio
+- **Add any stock** — Search any ticker (TSLA, BTC-USD, NVDA, etc.), not just listed ones
+- **Real-time lookup** — Resolves company name and current price via Cloud Run backend
+- **Portfolio overview** — Track all your holdings in one place
+
+### Price Alerts & Push Notifications
+- **Custom alerts** — Set above/below price targets on any stock in your portfolio
+- **Background monitoring** — Cloud Function runs every 10 minutes during market hours (Mon–Fri, 9:25am–4:05pm ET)
+- **Push notifications** — Receive alerts on your device even when the browser is closed (via Firebase Cloud Messaging)
+- **In-app toasts** — Foreground alerts shown instantly when the tab is open
 
 ---
 
@@ -81,25 +99,32 @@ python3 -m http.server 8080
 
 ---
 
+---
+
 ## Architecture
 
 ```
 Browser (index.html)
     │
-    ├── styles.css          — Design system & component styles
-    ├── app.js              — Dashboard rendering & interactions
-    ├── api.js              — API client (MCP server → cache → fallback)
-    └── data.js             — Static fallback data (used if server offline)
+    ├── styles.css               — Design system & component styles
+    ├── app.js                   — Dashboard rendering & interactions
+    ├── api.js                   — API client (Cloud Run → cache → fallback)
+    ├── data.js                  — Static fallback data (used if server offline)
+    ├── firebase-config.js       — Firebase initialization (Auth, Firestore, Messaging)
+    ├── auth.js                  — Phone OTP authentication & user state
+    ├── portfolio.js             — Portfolio management & price alerts UI
+    └── fcm.js                   — FCM token registration & foreground message handler
           │
           ▼
-    MCP Agent Server (stock_agent_server.py)
-          │
-          ├── Tool 1: fetch_live_prices()     — Yahoo Finance real-time quotes
-          ├── Tool 2: analyze_fundamentals()  — PE, D/E, FCF, ROE, revenue growth
-          ├── Tool 3: generate_ai_ratings()   — 100-pt composite scoring
-          └── Tool 4: get_market_context()    — Index prices (S&P500, VIX, etc.)
-                │
-                └── cache/   — Server-side JSON cache (4-hour TTL)
+    Cloud Run Backend (stock_agent_server.py)       Firebase (Blaze plan)
+          │                                               │
+          ├── fetch_live_prices()                    ├── Firebase Auth (Phone OTP)
+          ├── analyze_fundamentals()                 ├── Firestore (portfolio & alerts)
+          ├── generate_ai_ratings()                  ├── Cloud Messaging (FCM push)
+          └── get_market_context()                   └── Cloud Functions (cron alerts)
+                │                                               │
+                └── cache/  (4hr TTL)              checkPriceAlerts  ← every 10 min
+                                                   Mon–Fri 9:25am–4:05pm ET
 ```
 
 ## API Endpoints
@@ -108,11 +133,46 @@ Browser (index.html)
 |--------|----------|-------------|
 | `GET` | `/api/dashboard` | Full dashboard data (prices, fundamentals, ratings) |
 | `GET` | `/api/dashboard?force=true` | Force-refresh, bypass cache |
-| `GET` | `/api/stock/:ticker` | Single stock detail |
+| `GET` | `/api/stock/:ticker` | Single stock detail (used for portfolio ticker lookup) |
 | `POST` | `/api/refresh` | Force-refresh all data |
 | `GET` | `/api/health` | Server health check |
 
-## AI Scoring Algorithm
+## Firestore Data Model
+
+```
+users/{uid}/
+    portfolio/{ticker}
+        name        — Company name
+        ticker      — Stock symbol
+        addedAt     — Timestamp
+
+    alerts/{alertId}
+        ticker      — Stock symbol
+        targetPrice — Price threshold
+        direction   — "above" | "below"
+        active      — true until triggered
+        triggeredAt — Timestamp (set when fired)
+        triggeredPrice — Price at trigger time
+
+    fcmTokens/{token}
+        token       — FCM registration token
+        createdAt   — Timestamp
+```
+
+## Cloud Function — `checkPriceAlerts`
+
+- **Schedule**: every 10 minutes, Mon–Fri, 9:25am–4:05pm America/New_York
+- **Runtime**: Node 20, Cloud Functions v2 (us-central1)
+- **Library**: `yahoo-finance2` for live price lookup
+- **Flow**:
+  1. Queries all `active: true` alerts across all users
+  2. Fetches current price for each unique ticker
+  3. Checks if target is breached
+  4. Marks triggered alerts as `active: false`
+  5. Sends FCM multicast push notification to user's devices
+  6. Prunes stale/invalid FCM tokens automatically
+
+
 
 Each stock is scored **0–100** across four pillars (25 pts each):
 
@@ -158,6 +218,12 @@ Ratings:
 
 **CORS errors in browser console**
 → Ensure `flask-cors` is installed and the server is running on port 5000
+
+**Notification permission denied**
+→ Go to browser site settings for `stock-insight-dashboard.web.app` and allow Notifications, then sign out and back in
+
+**Push notifications not arriving**
+→ Ensure you allowed notification permission when prompted after sign-in. Background alerts only fire during market hours (Mon–Fri, 9:25am–4:05pm ET).
 
 **Data looks stale**
 → Click the **Refresh** button in the top bar, or delete the `cache/` folder and restart the server
