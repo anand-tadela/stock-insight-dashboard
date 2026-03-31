@@ -259,6 +259,7 @@ def analyze_fundamentals(tickers):
                 "analystCount": analyst_count,
                 "fiftyTwoWeekHigh": round(fifty_two_high, 2) if fifty_two_high else None,
                 "fiftyTwoWeekLow": round(fifty_two_low, 2) if fifty_two_low else None,
+                "earningsDate": _get_next_earnings_date(info),
             }
         except Exception as e:
             print(f"[Agent] ⚠️ Fundamentals error for {ticker}: {e}")
@@ -266,6 +267,26 @@ def analyze_fundamentals(tickers):
 
     print(f"[Agent] ✅ Analyzed fundamentals for {len(results)}/{len(tickers)} tickers")
     return results
+
+
+def _get_next_earnings_date(info):
+    """Extract the next (or most recent) earnings date from yfinance info dict."""
+    now_ts = datetime.now().timestamp()
+    cutoff = now_ts - 7 * 24 * 3600  # allow up to 7 days past
+    # Try earningsTimestamps list first (most reliable)
+    timestamps = info.get("earningsTimestamps") or []
+    if timestamps:
+        upcoming = sorted([ts for ts in timestamps if ts > cutoff])
+        if upcoming:
+            return datetime.fromtimestamp(upcoming[0]).strftime("%Y-%m-%d")
+    # Fallback: earningsDate field (sometimes a single timestamp)
+    ed = info.get("earningsDate")
+    if ed:
+        if isinstance(ed, (int, float)) and ed > cutoff:
+            return datetime.fromtimestamp(ed).strftime("%Y-%m-%d")
+        if isinstance(ed, str):
+            return ed[:10]
+    return None
 
 
 # ─── MCP TOOL 3: AI RATING & SCORING ──────────────────────────────────────────

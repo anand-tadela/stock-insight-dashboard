@@ -17,6 +17,7 @@
   // ─── STATE ────────────────────────────────────────────────────────────────
   let DATA = null;
   let currentSector = "technology";
+  let currentFramework = "ai";        // ai | buffett | cathie | momentum
   let sectorChart = null;
   let allocationChart = null;
   const miniCharts = {};
@@ -114,6 +115,12 @@
     hookTheme();
     hookModal();
     hookApiBar();
+    hookFrameworkTabs();
+    hookPortfolioModeTabs();
+    if (window.Insights) {
+      Insights.hookTabs();
+      Insights.renderMacroAlerts(DATA.market);
+    }
 
     // Done — hide loader
     setTimeout(hideLoader, 600);
@@ -170,6 +177,10 @@
             Portfolio.renderPortfolio();
             Portfolio.checkAlerts(DATA);
           }
+          if (window.Insights) {
+            Insights.renderMacroAlerts(DATA.market);
+            Insights.renderDiversification(Portfolio.portfolioStocks, DATA);
+          }
         } catch {
           alert("Refresh failed. Make sure the MCP Agent Server is running:\npython3 stock_agent_server.py");
         }
@@ -191,6 +202,99 @@
         overlay.classList.remove("active");
       });
     }
+  }
+
+  // ─── FRAMEWORK SCORE ENGINE ───────────────────────────────────────────────
+
+  const FRAMEWORK_META = {
+    ai:       { label: "🤖 AI Score",     desc: "Composite 100-pt score: Valuation · Growth · Balance Sheet · Analyst Consensus" },
+    buffett:  { label: "💰 Buffett Value", desc: "Classic value: low P/E, low debt, high ROE, strong free cash flow" },
+    cathie:   { label: "🚀 Growth Mode",  desc: "Disruptive growth focus: high revenue growth, AI score, analyst upside" },
+    momentum: { label: "📈 Momentum",     desc: "Price momentum + analyst conviction + target upside" },
+  };
+
+  function computeFrameworkScore(s, fw) {
+    if (fw === "ai") return s.aiScore || 0;
+
+    if (fw === "buffett") {
+      const peScore  = s.pe == null ? 50 : s.pe < 10 ? 100 : s.pe < 18 ? 80 : s.pe < 28 ? 55 : s.pe < 45 ? 30 : 10;
+      const deScore  = s.debtToEquity == null ? 50 : s.debtToEquity < 0.3 ? 100 : s.debtToEquity < 0.7 ? 75 : s.debtToEquity < 1.5 ? 45 : 15;
+      const roeScore = s.returnOnEquity == null ? 50 : s.returnOnEquity > 25 ? 100 : s.returnOnEquity > 15 ? 75 : s.returnOnEquity > 8 ? 50 : 20;
+      const fcfScore = s.freeCashflow == null ? 50 : s.freeCashflow > 1e10 ? 100 : s.freeCashflow > 1e9 ? 75 : s.freeCashflow > 0 ? 50 : 10;
+      return Math.round(peScore * 0.35 + deScore * 0.25 + roeScore * 0.25 + fcfScore * 0.15);
+    }
+
+    if (fw === "cathie") {
+      const growthScore = s.revenueGrowth == null ? 40 : s.revenueGrowth > 50 ? 100 : s.revenueGrowth > 25 ? 80 : s.revenueGrowth > 10 ? 55 : s.revenueGrowth > 0 ? 30 : 10;
+      const aiScore     = s.aiScore || 40;
+      const upsideScore = (s.targetPrice && s.price)
+        ? Math.min(100, Math.max(0, ((s.targetPrice - s.price) / s.price) * 200))
+        : 50;
+      return Math.round(growthScore * 0.45 + aiScore * 0.35 + upsideScore * 0.2);
+    }
+
+    if (fw === "momentum") {
+      const chgScore    = s.changePercent == null ? 50 : s.changePercent > 3 ? 100 : s.changePercent > 1 ? 75 : s.changePercent > 0 ? 55 : s.changePercent > -2 ? 35 : 10;
+      const analystScore = s.analystCount == null ? 50 : s.analystCount > 30 ? 90 : s.analystCount > 15 ? 70 : s.analystCount > 5 ? 50 : 30;
+      const upsideScore = (s.targetPrice && s.price)
+        ? Math.min(100, Math.max(0, ((s.targetPrice - s.price) / s.price) * 250))
+        : 50;
+      return Math.round(chgScore * 0.4 + analystScore * 0.25 + upsideScore * 0.35);
+    }
+
+    return s.aiScore || 0;
+  }
+
+  function getFrameworkRating(score) {
+    if (score >= 80) return "Strong Buy";
+    if (score >= 65) return "Buy";
+    if (score >= 50) return "Hold";
+    return "Underperform";
+  }
+
+  function hookFrameworkTabs() {
+    document.querySelectorAll(".ftab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".ftab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        currentFramework = tab.dataset.fw;
+        const descEl = document.getElementById("frameworkDesc");
+        if (descEl) descEl.textContent = FRAMEWORK_META[currentFramework]?.desc || "";
+        renderAnalysis();
+      });
+    });
+  }
+
+  function hookPortfolioModeTabs() {
+    const tabContentMap = {
+      holdings: "holdingsContent",
+      paper:    "paperTradeContent",
+      analysis: "portfolioAnalysisContent",
+    };
+
+    // On load: hide non-default tabs with display:none
+    Object.entries(tabContentMap).forEach(([tab, id]) => {
+      const el = document.getElementById(id);
+      if (el && tab !== "holdings") el.style.display = "none";
+    });
+
+    document.querySelectorAll(".pmtab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".pmtab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        const tabId = tab.dataset.tab;
+
+        // Show only the active tab's content, hide others with display:none
+        Object.entries(tabContentMap).forEach(([key, id]) => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = key === tabId ? "" : "none";
+        });
+
+        if (tabId === "analysis" && window.Portfolio) {
+          Portfolio.renderPortfolioAnalysis();
+        }
+      });
+    });
   }
 
   // ─── HERO SECTION ─────────────────────────────────────────────────────────
@@ -506,21 +610,55 @@
     const sec = DATA.sectors[currentSector];
     if (!sec) return;
 
-    grid.innerHTML = sec.stocks.map((s) => {
+    // Sort by current framework score
+    const scored = sec.stocks.map((s) => ({
+      ...s,
+      fwScore:  computeFrameworkScore(s, currentFramework),
+      fwRating: getFrameworkRating(computeFrameworkScore(s, currentFramework)),
+    })).sort((a, b) => b.fwScore - a.fwScore);
+
+    const fw = currentFramework;
+
+    grid.innerHTML = scored.map((s) => {
       const bg = LOGO_COLORS[s.ticker] || "#6366f1";
-      const chipTypes = ["green", "blue", "cyan", "orange", "green"];
+
+      let fwPoints = [];
+      if (fw === "buffett") {
+        if (s.pe != null)             fwPoints.push(`P/E of ${s.pe} — ${s.pe < 18 ? "value territory" : s.pe < 28 ? "fair value" : "growth premium"}`);
+        if (s.debtToEquity != null)   fwPoints.push(`D/E ${s.debtToEquity} — ${s.debtToEquity < 0.5 ? "fortress balance sheet" : "manageable leverage"}`);
+        if (s.returnOnEquity != null) fwPoints.push(`ROE ${s.returnOnEquity}% — ${s.returnOnEquity > 20 ? "exceptional capital returns" : "solid returns"}`);
+        if (s.freeCashflow != null)   fwPoints.push(`FCF ${fmtCompact(s.freeCashflow)} — ${s.freeCashflow > 0 ? "positive cash generation" : "cash burn concern"}`);
+      } else if (fw === "cathie") {
+        if (s.revenueGrowth != null)  fwPoints.push(`Revenue growing ${s.revenueGrowth > 0 ? "+" : ""}${s.revenueGrowth}% — ${s.revenueGrowth > 25 ? "hypergrowth" : "steady expansion"}`);
+        fwPoints.push(`AI disruption score: ${s.aiScore}/100`);
+        if (s.targetPrice && s.price) {
+          const up = (((s.targetPrice - s.price) / s.price) * 100).toFixed(0);
+          fwPoints.push(`Analyst target $${s.targetPrice} — ${up > 0 ? "+" : ""}${up}% upside`);
+        }
+      } else if (fw === "momentum") {
+        if (s.changePercent != null)  fwPoints.push(`${s.changePercent >= 0 ? "▲" : "▼"} ${Math.abs(s.changePercent).toFixed(2)}% today — ${s.changePercent >= 0 ? "positive momentum" : "downward pressure"}`);
+        if (s.analystCount)           fwPoints.push(`${s.analystCount} Wall Street analysts covering this stock`);
+        if (s.targetPrice && s.price) {
+          const up = (((s.targetPrice - s.price) / s.price) * 100).toFixed(0);
+          fwPoints.push(`Consensus target $${s.targetPrice} (${up > 0 ? "+" : ""}${up}% from here)`);
+        }
+        fwPoints.push(`Recommendation: ${s.recommendation || s.aiRating || "Buy"}`);
+      } else {
+        fwPoints = s.aiReasons || [];
+      }
+
       return `
         <div class="analysis-card">
           <div class="analysis-card-header">
             <div class="analysis-card-logo" style="background:${bg}">${s.ticker.slice(0, 3)}</div>
             <div>
-              <div class="analysis-card-title">${s.ticker} — ${s.aiRating || "Buy"} (${s.aiScore || "—"}/100)</div>
+              <div class="analysis-card-title">${s.ticker} — ${s.fwRating} (${s.fwScore}/100)</div>
               <div class="analysis-card-subtitle">${s.name}</div>
             </div>
           </div>
           <div class="analysis-body">
             <div class="analysis-text">
-              ${(s.aiReasons || []).map((r) => `• ${r}`).join("<br>")}
+              ${fwPoints.map((r) => `• ${r}`).join("<br>")}
             </div>
             <div class="analysis-chips">
               ${s.pe != null ? `<span class="chip blue">PE ${s.pe}</span>` : ""}
@@ -702,4 +840,8 @@
 
     overlay.classList.add("active");
   }
+
+  // ─── EXPOSE UTILITIES FOR OTHER MODULES ──────────────────────────────────
+  window.AppUtils = { computeFrameworkScore, getFrameworkRating, FRAMEWORK_META, fmtCompact };
+
 })();

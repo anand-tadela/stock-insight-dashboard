@@ -26,7 +26,7 @@
     });
   }
 
-  function onUserSignedIn(user) {
+  async function onUserSignedIn(user) {
     const phone = user.phoneNumber || "User";
 
     // Update header login button
@@ -44,15 +44,28 @@
       el.classList.remove("auth-hidden")
     );
 
-    // Load portfolio & alerts
+    // Load portfolio, alerts, paper trades
     if (window.Portfolio) {
-      Portfolio.loadPortfolio(user.uid);
-      Portfolio.loadAlerts(user.uid);
+      await Portfolio.loadPortfolio(user.uid);
+      await Portfolio.loadAlerts(user.uid);
+    }
+    if (window.PaperTrade) {
+      PaperTrade.loadPaperTrades(user.uid);
+    }
+
+    // Fire up insights once data is ready
+    if (window.Insights && window.APP_DATA) {
+      Insights.renderMacroAlerts(window.APP_DATA.market);
+      Insights.renderDiversification(window.Portfolio?.portfolioStocks || [], window.APP_DATA);
+      Insights.loadEarnings(window.Portfolio?.portfolioStocks || []);
     }
 
     // Request browser notification permission, then register FCM token
     await requestNotificationPermission();
     if (window.FCM) FCM.setupFCM(user.uid);
+
+    // Update "Why" section CTAs to show navigation instead of login prompt
+    updateWhyCTAs(true);
   }
 
   function onUserSignedOut() {
@@ -67,6 +80,22 @@
     );
 
     if (window.Portfolio) Portfolio.clear();
+    if (window.PaperTrade) PaperTrade.clear();
+
+    // Revert "Why" section CTAs back to login prompts
+    updateWhyCTAs(false);
+  }
+
+  // ─── WHY SECTION CTAs ─────────────────────────────────────────────────────
+  function updateWhyCTAs(signedIn) {
+    document.querySelectorAll(".why-auth-cta").forEach((btn) => {
+      btn.textContent = signedIn ? "Go to feature ↓" : "Sign in to try →";
+    });
+    document.querySelectorAll(".why-auth-tag").forEach((tag) => {
+      tag.textContent = signedIn ? "✓ Unlocked" : "Sign in to unlock";
+      tag.classList.toggle("why-tag--unlocked", signedIn);
+      tag.classList.toggle("why-tag--auth", !signedIn);
+    });
   }
 
   // ─── MODAL OPEN / CLOSE ────────────────────────────────────────────────────
@@ -273,4 +302,28 @@
 
   // Expose so app.js can check current user
   window.Auth = { openAuthModal, closeAuthModal, signOut };
+
+  // Global handler for "Why" section CTA buttons — called via onclick="whyCTA(this)"
+  window.whyCTA = function (btn) {
+    const isSignedIn = !!fbAuth.currentUser;
+    if (!isSignedIn) {
+      openAuthModal();
+      return;
+    }
+    const sectionId = btn.dataset.section;
+    const tabId     = btn.dataset.tab;
+    const section   = sectionId ? document.getElementById(sectionId) : null;
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (tabId) {
+        // Delay click to let scroll settle, then activate the right tab
+        setTimeout(() => {
+          const pmtab = section.querySelector(`.pmtab[data-tab="${tabId}"]`);
+          const itab  = section.querySelector(`.itab[data-tab="${tabId}"]`);
+          if (pmtab) pmtab.click();
+          if (itab)  itab.click();
+        }, 400);
+      }
+    }
+  };
 })();
