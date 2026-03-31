@@ -94,6 +94,9 @@
       return;
     }
 
+    // Expose dashboard data globally so portfolio.js can read live prices
+    window.APP_DATA = DATA;
+
     // Update API status bar
     updateApiStatus();
 
@@ -155,12 +158,18 @@
         refreshBtn.disabled = true;
         try {
           DATA = await StockAPI.forceRefresh();
+          window.APP_DATA = DATA;
           updateApiStatus();
           renderHero();
           renderTicker();
           renderSector(currentSector);
           renderCharts();
           renderAnalysis();
+          // Re-render portfolio with fresh prices and check alerts
+          if (window.Portfolio) {
+            Portfolio.renderPortfolio();
+            Portfolio.checkAlerts(DATA);
+          }
         } catch {
           alert("Refresh failed. Make sure the MCP Agent Server is running:\npython3 stock_agent_server.py");
         }
@@ -292,12 +301,24 @@
     if (!grid || !DATA.sectors[sectorKey]) return;
     const stocks = DATA.sectors[sectorKey].stocks;
     grid.innerHTML = stocks.map((s, i) => stockCardHTML(s, i)).join("");
-    // Clickable cards
+    // Clickable cards → open detail modal
     grid.querySelectorAll(".stock-card").forEach((card) => {
       card.addEventListener("click", () => {
         const ticker = card.dataset.ticker;
         const stock = stocks.find((s) => s.ticker === ticker);
         if (stock) openModal(stock);
+      });
+    });
+    // Add-to-portfolio buttons (event delegation prevents modal from opening)
+    grid.querySelectorAll(".add-to-portfolio-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const { ticker, name, price } = btn.dataset;
+        if (window.Portfolio) {
+          Portfolio.addToPortfolio(ticker, name, price ? parseFloat(price) : null);
+        } else {
+          window.Auth?.openAuthModal();
+        }
       });
     });
   }
@@ -332,7 +353,16 @@
           <span class="rating-dot"></span>
           ${s.aiRating || "Buy"} · Score ${s.aiScore || "—"}/100
         </div>
-        <div class="stock-card-hint">Click for chart &amp; details</div>
+        <div class="stock-card-footer">
+          <span class="stock-card-hint">Click for chart &amp; details</span>
+          <button class="add-to-portfolio-btn"
+            data-ticker="${s.ticker}"
+            data-name="${(s.name || "").replace(/"/g, "&quot;")}"
+            data-price="${s.price || ""}">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Portfolio
+          </button>
+        </div>
       </div>`;
   }
 

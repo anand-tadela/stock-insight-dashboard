@@ -13,7 +13,8 @@
       "README.md",
       "server.log",
       "nohup.out",
-      "cache/**"
+      "cache/**",
+      "firestore.rules"
     ],
     "rewrites": [
       {
@@ -41,5 +42,12 @@
         ]
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": {
+    "source": "functions"
   }
 }
